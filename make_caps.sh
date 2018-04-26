@@ -3,8 +3,7 @@
 # Default values
 DEFAULT_INTERVAL=30
 DEFAULT_FS=24
-VERSION="0.5"
-SVN_VERSION="\$Revision: 18 $"
+VERSION="0.6"
 
 # Set default values
 OFFSET=0
@@ -97,7 +96,7 @@ while true ; do
        --pause|-pause) DO_PAUSE=1; shift 1;;
        --dont-delete-caps|-dont-delete-caps) DO_NOT_DELETE_CAPS=1; shift 1;;
     -h|--help|-help) print_help; exit 0;;
-    -V|--version|-version) echo "`basename ${0}`, Version ${VERSION} [SVN: ${SVN_VERSION}]"; exit 0;;
+    -V|--version|-version) echo "`basename ${0}`, Version ${VERSION}"; exit 0;;
     --) shift ; break ;;
     *) echo "Unknown parameter $1." ; exit 1 ;;
   esac
