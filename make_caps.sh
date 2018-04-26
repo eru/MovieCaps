@@ -36,22 +36,22 @@ Usage: `basename $0` [OPTIONS] <filename of the movie>
  -e, --end <end in seconds>                End capturing here (default: length of the movie). Specifying a negative ends capturing an movielength-value.
  -i, --interval <time between screencaps>  Interval between screencaps (default: ${DEFAULT_INTERVAL}).
  -n, --number <number of screencaps>       Specify how many screencaps should be taken. This overwrites -i.
- 
+
  -s, --scale <scale factor>                Scale the screencaps by this factor (default: no scaling).
 
  -c, --crop <crop-spec>                    Crop the images using Imagemagick. See ImageMagick(1) details.
  -a, --autocrop                            Trim the picture's edges via an simple heuristic.
- 
+
  -p, --prefix <prefix>                     Prefix of the screencaps (default: ${DEFAULT_PREFIX}).
- 
+
  -x, --no-timestamps                       Don't write timestamps into the screencaps.
  -f, --fontsize <fontsite in pixels>       Default is ${DEFAULT_FS}.
- 
+
  -l, --columns <number of columns>         Number of columns the final picture sheets should have (default: $NUM_COLS).
      --pause                               Wait before composing the final picture. You may modify or delete some of the
                                            screencaps before they are composed into the final image.
      --dont-delete-caps                    Do not delete the screen captures afterwards.
-     
+
  -h, --help                                Print this message and exit.
  -V, --version                             Print the version and exit.
 
@@ -68,11 +68,11 @@ done
 
 # Parse the arguments
 TEMP_OPT=`getopt -a \
-          -o e:,o:,i:,n:,f:,s:,p:,h,V,c:,x,a,l: \
-	  --long end:,offset:,interval:,number:,fontsize:,scale:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps \
-	  -- "$@"`
+  -o e:,o:,i:,n:,f:,s:,p:,h,V,c:,x,a,l: \
+  --long end:,offset:,interval:,number:,fontsize:,scale:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps \
+  -- "$@"`
 
-if [ $? != 0 ]; then 
+if [ $? != 0 ]; then
   echo "Error executing getopt. Terminating..." >&2
   exit 1
 fi
@@ -81,21 +81,21 @@ eval set -- "$TEMP_OPT"
 
 while true ; do
   case "$1" in
-    -o|--offset|-offset)	OFFSET=$2; shift 2;;
-    -e|--end|-end)		LENGTH=$2; shift 2;;
-    -i|--interval|-interval)	INTERVAL=$2; shift 2;;
-    -n|--number|-number)	NUM_CAPS=$2; shift 2;;
-    -f|--fontsize|-fontsize)	FONTSIZE=$2; shift 2;;
-    -s|--scale|-scale)		SCALE_FACTOR=$2; shift 2;;
-    -p|--prefix|-prefix)	PREFIX=$2; shift 2;;
-    -c|--crop|-crop)		CROP_SPEC=$2; shift 2;;
-    -a|--autocrop|-autocrop)	AUTOCROP=1; shift 1;;
-    -x|--no-timestamps|-no-timestamps)	NO_TIMESTAMPS=1; shift 1;;
-    -l|--columns|-column)	NUM_COLS=$2; shift 2;;
-       --pause|-pause)		DO_PAUSE=1; shift 1;;
-       --dont-delete-caps|-dont-delete-caps)	DO_NOT_DELETE_CAPS=1; shift 1;;
-    -h|--help|-help)		print_help; exit 0;;
-    -V|--version|-version)	echo "`basename ${0}`, Version ${VERSION} [SVN: ${SVN_VERSION}]"; exit 0;;
+    -o|--offset|-offset) OFFSET=$2; shift 2;;
+    -e|--end|-end) LENGTH=$2; shift 2;;
+    -i|--interval|-interval) INTERVAL=$2; shift 2;;
+    -n|--number|-number) NUM_CAPS=$2; shift 2;;
+    -f|--fontsize|-fontsize) FONTSIZE=$2; shift 2;;
+    -s|--scale|-scale) SCALE_FACTOR=$2; shift 2;;
+    -p|--prefix|-prefix) PREFIX=$2; shift 2;;
+    -c|--crop|-crop) CROP_SPEC=$2; shift 2;;
+    -a|--autocrop|-autocrop) AUTOCROP=1; shift 1;;
+    -x|--no-timestamps|-no-timestamps) NO_TIMESTAMPS=1; shift 1;;
+    -l|--columns|-column) NUM_COLS=$2; shift 2;;
+       --pause|-pause) DO_PAUSE=1; shift 1;;
+       --dont-delete-caps|-dont-delete-caps) DO_NOT_DELETE_CAPS=1; shift 1;;
+    -h|--help|-help) print_help; exit 0;;
+    -V|--version|-version) echo "`basename ${0}`, Version ${VERSION} [SVN: ${SVN_VERSION}]"; exit 0;;
     --) shift ; break ;;
     *) echo "Unknown parameter $1." ; exit 1 ;;
   esac
@@ -156,7 +156,7 @@ for i in `seq 0 $(($STEPS-1))`
 do
   # extract picture from movie
   mplayer -nosound -ao null -vo jpeg:quality=100 -ss $(($OFFSET+$i*$INTERVAL)) -frames 1 $SCALE_OPTS "${MOVIEFILENAME}" > /dev/null 2> /dev/null
-  
+
   # crop the picture
   if [ ! -z $CROP_SPEC ]; then
     mogrify -crop ${CROP_SPEC} 00000001.jpg
@@ -172,18 +172,18 @@ do
     TIMESTAMP=`printf "%02d:%02d:%02d" $((($POSITION/3600)%24)) $((($POSITION/60)%60)) $(($POSITION%60))`
     # insert timestamp
     convert 00000001.jpg -gravity SouthWest \
-                         -pointsize $FONTSIZE \
-			 -stroke '#0004' -strokewidth 2 -annotate +1-1 "$TIMESTAMP" \
-			 -stroke none -fill '#fff4' -annotate +1-1 "$TIMESTAMP" 00000001.jpg
+      -pointsize $FONTSIZE \
+      -stroke '#0004' -strokewidth 2 -annotate +1-1 "$TIMESTAMP" \
+      -stroke none -fill '#fff4' -annotate +1-1 "$TIMESTAMP" 00000001.jpg
   fi
 
   # rename captured picture to prefix_seqnum.jpg
   FNAME=`printf "%s%08d.jpg" "${PREFIX}" $i`
   mv 00000001.jpg $FNAME
-  
+
   # Append the filename to the array SCREENCAPS
   SCREENCAPS[${#SCREENCAPS[*]}]=$FNAME
-  
+
   echo -n '*'
 done
 echo " done."
