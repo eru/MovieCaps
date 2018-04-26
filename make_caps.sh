@@ -38,6 +38,7 @@ Usage: `basename $0` [OPTIONS] <filename of the movie>
  -n, --number <number of screencaps>       Specify how many screencaps should be taken. This overwrites -i.
 
  -s, --scale <scale factor>                Scale the screencaps by this factor (default: no scaling).
+ -w, --width <width in pixels>             Scale the screencaps to fit the width. This overwrites -s.
 
  -c, --crop <crop-spec>                    Crop the images using Imagemagick. See ImageMagick(1) details.
  -a, --autocrop                            Trim the picture's edges via an simple heuristic.
@@ -68,8 +69,8 @@ done
 
 # Parse the arguments
 TEMP_OPT=`getopt -a \
-  -o e:,o:,i:,n:,f:,s:,p:,h,V,c:,x,a,l: \
-  --long end:,offset:,interval:,number:,fontsize:,scale:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps \
+  -o e:,o:,i:,n:,f:,s:,w:,p:,h,V,c:,x,a,l: \
+  --long end:,offset:,interval:,number:,fontsize:,scale:,width:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps \
   -- "$@"`
 
 if [ $? != 0 ]; then
@@ -87,6 +88,7 @@ while true ; do
     -n|--number|-number) NUM_CAPS=$2; shift 2;;
     -f|--fontsize|-fontsize) FONTSIZE=$2; shift 2;;
     -s|--scale|-scale) SCALE_FACTOR=$2; shift 2;;
+    -w|--width|-width) WIDTH=$2; shift 2;;
     -p|--prefix|-prefix) PREFIX=$2; shift 2;;
     -c|--crop|-crop) CROP_SPEC=$2; shift 2;;
     -a|--autocrop|-autocrop) AUTOCROP=1; shift 1;;
@@ -142,6 +144,11 @@ else
 fi
 
 # construct parameters for scaling
+if [ ! -z $WIDTH ]; then
+  eval `mplayer -vo null -ao null -frames 0 -identify "${MOVIEFILENAME}" 2> /dev/null| grep ID_VIDEO_WIDTH`
+  VIDEO_WIDTH=`echo $ID_VIDEO_WIDTH | awk '{print int($1)}'`
+  SCALE_FACTOR=`echo "scale=5; $WIDTH / ($VIDEO_WIDTH * $NUM_COLS)" | bc`
+fi
 if [ ${SCALE_FACTOR} == 1 ]; then
   SCALE_OPTS=""
 else
