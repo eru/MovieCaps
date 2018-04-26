@@ -155,14 +155,14 @@ echo "Making $STEPS screencaps, beginning at $OFFSET seconds and stopping at $LE
 for i in `seq 0 $(($STEPS-1))`
 do
   # extract picture from movie
-  mplayer -nosound -ao null -vo jpeg:quality=100 -ss $(($OFFSET+$i*$INTERVAL)) -frames 1 $SCALE_OPTS "${MOVIEFILENAME}" > /dev/null 2> /dev/null
+  mplayer -nosound -ao null -vo png -ss $(($OFFSET+$i*$INTERVAL)) -frames 1 $SCALE_OPTS "${MOVIEFILENAME}" > /dev/null 2> /dev/null
 
   # crop the picture
   if [ ! -z $CROP_SPEC ]; then
-    mogrify -crop ${CROP_SPEC} 00000001.jpg
+    mogrify -crop ${CROP_SPEC} 00000001.png
   fi
   if [ ! -z $AUTOCROP ]; then
-    mogrify -fuzz 10% -trim 00000001.jpg
+    mogrify -fuzz 10% -trim 00000001.png
   fi
 
   # Insert timestamp
@@ -171,15 +171,15 @@ do
     POSITION=$(($OFFSET+$i*$INTERVAL))
     TIMESTAMP=`printf "%02d:%02d:%02d" $((($POSITION/3600)%24)) $((($POSITION/60)%60)) $(($POSITION%60))`
     # insert timestamp
-    convert 00000001.jpg -gravity SouthWest \
+    convert 00000001.png -gravity SouthWest \
       -pointsize $FONTSIZE \
       -stroke '#0004' -strokewidth 2 -annotate +1-1 "$TIMESTAMP" \
-      -stroke none -fill '#fff4' -annotate +1-1 "$TIMESTAMP" 00000001.jpg
+      -stroke none -fill '#fff4' -annotate +1-1 "$TIMESTAMP" 00000001.png
   fi
 
-  # rename captured picture to prefix_seqnum.jpg
-  FNAME=`printf "%s%08d.jpg" "${PREFIX}" $i`
-  mv 00000001.jpg $FNAME
+  # rename captured picture to prefix_seqnum.png
+  FNAME=`printf "%s%08d.png" "${PREFIX}" $i`
+  mv 00000001.png $FNAME
 
   # Append the filename to the array SCREENCAPS
   SCREENCAPS[${#SCREENCAPS[*]}]=$FNAME
@@ -193,12 +193,12 @@ if [ ! -z $DO_WAIT ]; then
   read
 fi
 
-# Strip the extension from the movie's filename and append .jpg
+# Strip the extension from the movie's filename and append .png
 MONTAGE_FILE=${MOVIEFILENAME}
 for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv ; do
   MONTAGE_FILE=`basename "${MONTAGE_FILE}" $i`
 done
-MONTAGE_FILE="${MONTAGE_FILE}.jpg"
+MONTAGE_FILE="${MONTAGE_FILE}.png"
 
 montage -geometry +0+0 -tile ${NUM_COLS}x ${SCREENCAPS[*]} "${MONTAGE_FILE}"
 
