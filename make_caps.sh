@@ -3,7 +3,7 @@
 # Default values
 DEFAULT_INTERVAL=30
 DEFAULT_FS=24
-VERSION="0.6"
+VERSION="0.7"
 
 # Set default values
 OFFSET=0
@@ -179,8 +179,8 @@ do
     # insert timestamp
     convert 00000001.png -gravity SouthWest \
       -pointsize $FONTSIZE \
-      -stroke '#0004' -strokewidth 2 -annotate +1-1 "$TIMESTAMP" \
-      -stroke none -fill '#fff4' -annotate +1-1 "$TIMESTAMP" 00000001.png
+      -stroke '#000' -strokewidth 2 -annotate +1-1 "$TIMESTAMP" \
+      -stroke none -fill '#fff' -annotate +1-1 "$TIMESTAMP" 00000001.png
   fi
 
   # rename captured picture to prefix_seqnum.png
