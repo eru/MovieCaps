@@ -204,7 +204,7 @@ MONTAGE_FILE=${MOVIEFILENAME}
 for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv ; do
   MONTAGE_FILE=`basename "${MONTAGE_FILE}" $i`
 done
-MONTAGE_FILE="${MONTAGE_FILE}.png"
+MONTAGE_FILE="`dirname ${MOVIEFILENAME}`/${MONTAGE_FILE}.png"
 
 montage -geometry +0+0 -tile ${NUM_COLS}x ${SCREENCAPS[*]} "${MONTAGE_FILE}"
 
