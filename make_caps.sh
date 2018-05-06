@@ -59,7 +59,7 @@ EOF
 }
 
 # Check if the required software is available
-for i in getopt mplayer convert printf awk; do
+for i in getopt mplayer convert ffmpeg printf awk; do
   if [ ! `which ${i}` ]; then
     echo "Error: Unable to find ${i}."
     exit 4
@@ -150,8 +150,10 @@ if [ ! -z $WIDTH ]; then
 fi
 if [ ${SCALE_FACTOR} == 1 ]; then
   SCALE_OPTS=""
+  FFMPEG_SCALE_OPTS=""
 else
   SCALE_OPTS="-sws 2 -vf scale -xy ${SCALE_FACTOR} -zoom"
+  FFMPEG_SCALE_OPTS="-sws_flags bicubic -vf scale=iw*${SCALE_FACTOR}:-1"
 fi
 
 ## End: Argument Parsing
@@ -162,6 +164,18 @@ for i in `seq 0 $(($STEPS-1))`
 do
   # extract picture from movie
   mplayer -nosound -ao null -vo png -ss $(($OFFSET+$i*$INTERVAL)) -frames 1 $SCALE_OPTS "${MOVIEFILENAME}" > /dev/null 2> /dev/null
+
+  # ffmpeg fallback
+  # Fixme: some times mplayer can't decode wmv
+  if [ ! -f 00000001.png ]; then
+    ffmpeg -ss $(($OFFSET+$i*$INTERVAL)) -r 1 -t 1 -i "${MOVIEFILENAME}" $FFMPEG_SCALE_OPTS 00000001.png 2> /dev/null
+  fi
+
+  if [ ! -f 00000001.png ]; then
+    echo "Error: Can't decode \"$MOVIEFILENAME\" file."
+    rm ${SCREENCAPS[*]}
+    exit 5
+  fi
 
   # crop the picture
   if [ ! -z $CROP_SPEC ]; then
@@ -201,7 +215,7 @@ fi
 
 # Strip the extension from the movie's filename and append .png
 MONTAGE_FILE=${MOVIEFILENAME}
-for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv ; do
+for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv .wmv ; do
   MONTAGE_FILE=`basename "${MONTAGE_FILE}" $i`
 done
 MONTAGE_FILE="`dirname ${MOVIEFILENAME}`/${MONTAGE_FILE}.png"

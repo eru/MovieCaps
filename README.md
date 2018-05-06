@@ -9,6 +9,7 @@ This shell script creates a sheet with screen captures from a movie.
 - awk/gawk/mawk
 - Mplayer
 - ImageMagick
+- FFmpeg
 
 ## Files
 
