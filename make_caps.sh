@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Default values
 DEFAULT_INTERVAL=30
@@ -14,7 +14,7 @@ PREFIX="cap_"
 NUM_COLS=4
 unset CROP_SPEC DO_PAUSE
 
-function debug () {
+debug () {
 cat <<EOF
 OFFSET       = ${OFFSET}
 LENGTH       = ${LENGTH}
@@ -27,7 +27,7 @@ PREFIX       = ${PREFIX}
 EOF
 }
 
-function print_help () {
+print_help () {
 cat <<EOF
 
 Usage: `basename $0` [OPTIONS] <filename of the movie>
@@ -56,6 +56,21 @@ Usage: `basename $0` [OPTIONS] <filename of the movie>
  -V, --version                             Print the version and exit.
 
 EOF
+}
+
+# See http://unix.stackexchange.com/questions/101080/realpath-command-not-found
+realpath ()
+{
+  f=$@;
+  if [ -d "$f" ]; then
+    base="";
+    dir="$f";
+  else
+    base="/$(basename "$f")";
+    dir=$(dirname "$f");
+  fi;
+  dir=$(cd "$dir" && /bin/pwd);
+  echo "$dir$base"
 }
 
 # Check if the required software is available
@@ -103,8 +118,8 @@ while true ; do
 done
 
 # Handle the filename of the movie
-MOVIEFILENAME="${1}"
-if [ -z "${MOVIEFILENAME}" ]; then
+MOVIEFILENAME="$(realpath ${1})"
+if [ ! -f "${MOVIEFILENAME}" ]; then
   echo "Error: Please specify a filename for the movie."
   print_help
   exit 2
@@ -218,9 +233,10 @@ MONTAGE_FILE=${MOVIEFILENAME}
 for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv .wmv ; do
   MONTAGE_FILE=`basename "${MONTAGE_FILE}" $i`
 done
-MONTAGE_FILE="`dirname ${MOVIEFILENAME}`/${MONTAGE_FILE}.png"
+MONTAGE_FILE="$(dirname "${MOVIEFILENAME}")/${MONTAGE_FILE}.png"
 
-montage -geometry +0+0 -tile ${NUM_COLS}x ${SCREENCAPS[*]} "${MONTAGE_FILE}"
+montage -geometry +0+0 -tile ${NUM_COLS}x ${SCREENCAPS[*]} 00000001.png
+/bin/mv -f 00000001.png "${MONTAGE_FILE}"
 
 # Delete the screen captures
 if [ -z $DO_NOT_DELETE_CAPS ] ; then
