@@ -13,6 +13,8 @@ SCALE_FACTOR=1
 PREFIX="cap_"
 NUM_COLS=4
 unset CROP_SPEC DO_PAUSE
+EXEC_DIR=$(/bin/pwd)
+CAPTURE_DIR=${EXEC_DIR}
 
 debug () {
 cat <<EOF
@@ -52,6 +54,8 @@ Usage: `basename $0` [OPTIONS] <filename of the movie>
                                            screencaps before they are composed into the final image.
      --dont-delete-caps                    Do not delete the screen captures afterwards.
 
+ -d, --cature-dir                          Screen captures output directory.
+
  -h, --help                                Print this message and exit.
  -V, --version                             Print the version and exit.
 
@@ -83,8 +87,8 @@ done
 
 # Parse the arguments
 TEMP_OPT=`getopt -a \
-  -o e:,o:,i:,n:,f:,s:,w:,p:,h,V,c:,x,a,l: \
-  --long end:,offset:,interval:,number:,fontsize:,scale:,width:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps \
+  -o e:,o:,i:,n:,f:,s:,w:,p:,h,V,c:,x,a,l:,d: \
+  --long end:,offset:,interval:,number:,fontsize:,scale:,width:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps,cature-dir: \
   -- "$@"`
 
 if [ $? != 0 ]; then
@@ -110,6 +114,7 @@ while true ; do
     -l|--columns|-column) NUM_COLS=$2; shift 2;;
        --pause|-pause) DO_PAUSE=1; shift 1;;
        --dont-delete-caps|-dont-delete-caps) DO_NOT_DELETE_CAPS=1; shift 1;;
+    -d|--cature-dir|-cature-dir) CAPTURE_DIR=$2; shift 2;;
     -h|--help|-help) print_help; exit 0;;
     -V|--version|-version) echo "`basename ${0}`, Version ${VERSION}"; exit 0;;
     --) shift ; break ;;
@@ -119,6 +124,7 @@ done
 
 # Handle the filename of the movie
 MOVIEFILENAME="$(realpath ${1})"
+echo $MOVIEFILENAME
 if [ ! -f "${MOVIEFILENAME}" ]; then
   echo "Error: Please specify a filename for the movie."
   print_help
@@ -128,6 +134,11 @@ fi
 if [ ! -r "${MOVIEFILENAME}" ]; then
   echo "Error: Unable to read file \"$MOVIEFILENAME\"."
   exit 3
+fi
+
+if [ ! -d "${CAPTURE_DIR}" ]; then
+  echo "Error: Caputure directory is not exist."
+  exit 6
 fi
 
 function calculate_movie_length () {
@@ -174,6 +185,7 @@ fi
 ## End: Argument Parsing
 
 declare -a SCREENCAPS
+cd "${CAPTURE_DIR}"
 echo "Making $STEPS screencaps, beginning at $OFFSET seconds and stopping at $LENGTH seconds: "
 for i in `seq 0 $(($STEPS-1))`
 do
@@ -242,3 +254,5 @@ montage -geometry +0+0 -tile ${NUM_COLS}x ${SCREENCAPS[*]} 00000001.png
 if [ -z $DO_NOT_DELETE_CAPS ] ; then
   rm ${SCREENCAPS[*]}
 fi
+
+cd "${EXEC_DIR}"
