@@ -15,6 +15,7 @@ NUM_COLS=4
 unset CROP_SPEC DO_PAUSE
 EXEC_DIR=$(/bin/pwd)
 CAPTURE_DIR=${EXEC_DIR}
+DEBUG=0
 
 debug () {
 cat <<EOF
@@ -59,6 +60,8 @@ Usage: `basename $0` [OPTIONS] <filename of the movie>
  -h, --help                                Print this message and exit.
  -V, --version                             Print the version and exit.
 
+ --debug                                   Debug mode.
+
 EOF
 }
 
@@ -88,7 +91,7 @@ done
 # Parse the arguments
 TEMP_OPT=`getopt -a \
   -o e:,o:,i:,n:,f:,s:,w:,p:,h,V,c:,x,a,l:,d: \
-  --long end:,offset:,interval:,number:,fontsize:,scale:,width:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps,cature-dir: \
+  --long end:,offset:,interval:,number:,fontsize:,scale:,width:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps,cature-dir:,debug \
   -- "$@"`
 
 if [ $? != 0 ]; then
@@ -117,10 +120,17 @@ while true ; do
     -d|--cature-dir|-cature-dir) CAPTURE_DIR=$2; shift 2;;
     -h|--help|-help) print_help; exit 0;;
     -V|--version|-version) echo "`basename ${0}`, Version ${VERSION}"; exit 0;;
+    --debug) DEBUG=1 shift 1;;
     --) shift ; break ;;
     *) echo "Unknown parameter $1." ; exit 1 ;;
   esac
 done
+
+# Debug
+if [ ${DEBUG} == 1 ]; then
+  debug
+  set -x
+fi
 
 # Handle the filename of the movie
 MOVIEFILENAME="$(realpath ${1})"
