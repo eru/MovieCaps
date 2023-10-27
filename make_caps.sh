@@ -252,7 +252,7 @@ fi
 
 # Strip the extension from the movie's filename and append .png
 MONTAGE_FILE=${MOVIEFILENAME}
-for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv .wmv ; do
+for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv .wmv .ts ; do
   MONTAGE_FILE=`basename "${MONTAGE_FILE}" $i`
 done
 MONTAGE_FILE="$(dirname "${MOVIEFILENAME}")/${MONTAGE_FILE}.png"
