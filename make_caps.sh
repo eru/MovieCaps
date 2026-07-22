@@ -296,14 +296,18 @@ if [ -n "$DO_PAUSE" ]; then
   read
 fi
 
-# Strip the extension from the movie's filename and append .png
-MONTAGE_FILE="${MOVIEFILENAME%.*}.png"
+# Strip the extension from the movie's filename and append .avif
+MONTAGE_FILE="${MOVIEFILENAME%.*}.avif"
+
+TMP_MONTAGE="tmp_montage_$$.png"
 
 montage \
   -font "/System/Library/Fonts/Helvetica.ttc" \
   -geometry +0+0 \
-  -tile ${NUM_COLS}x "${SCREENCAPS[@]}" 00000001.png
-/bin/mv -f 00000001.png "${MONTAGE_FILE}"
+  -tile ${NUM_COLS}x "${SCREENCAPS[@]}" "$TMP_MONTAGE"
+
+magick "$TMP_MONTAGE" -colorspace sRGB -quality 65 "$MONTAGE_FILE"
+rm -f "$TMP_MONTAGE"
 
 # Delete the screen captures
 if [ -z "$DO_NOT_DELETE_CAPS" ] ; then
