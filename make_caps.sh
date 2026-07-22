@@ -3,6 +3,7 @@
 # Default values
 DEFAULT_INTERVAL=30
 DEFAULT_FS=24
+DEFAULT_PREFIX="cap_"
 VERSION="0.7"
 
 # Set default values
@@ -10,7 +11,7 @@ OFFSET=0
 INTERVAL=$DEFAULT_INTERVAL
 FONTSIZE=$DEFAULT_FS
 SCALE_FACTOR=1
-PREFIX="cap_"
+PREFIX=$DEFAULT_PREFIX
 NUM_COLS=4
 unset CROP_SPEC DO_PAUSE
 EXEC_DIR=$(/bin/pwd)
@@ -33,7 +34,7 @@ EOF
 print_help () {
 cat <<EOF
 
-Usage: `basename $0` [OPTIONS] <filename of the movie>
+Usage: $(basename "$0") [OPTIONS] <filename of the movie>
  -o, --offset <start in seconds>           Start capturing here (default: 0).
  -e, --end <end in seconds>                End capturing here (default: length of the movie). Specifying a negative ends capturing an movielength-value.
  -i, --interval <time between screencaps>  Interval between screencaps (default: ${DEFAULT_INTERVAL}).
@@ -55,12 +56,12 @@ Usage: `basename $0` [OPTIONS] <filename of the movie>
                                            screencaps before they are composed into the final image.
      --dont-delete-caps                    Do not delete the screen captures afterwards.
 
- -d, --cature-dir                          Screen captures output directory.
+ -d, --capture-dir                         Screen captures output directory.
 
  -h, --help                                Print this message and exit.
  -V, --version                             Print the version and exit.
 
- --debug                                   Debug mode.
+     --debug                               Debug mode.
 
 EOF
 }
@@ -81,18 +82,18 @@ realpath ()
 }
 
 # Check if the required software is available
-for i in getopt mplayer magick ffmpeg printf awk; do
-  if [ ! `which ${i}` ]; then
+for i in getopt mplayer magick ffmpeg printf awk bc; do
+  if ! command -v "${i}" > /dev/null 2>&1; then
     echo "Error: Unable to find ${i}."
     exit 4
   fi
 done
 
 # Parse the arguments
-TEMP_OPT=`getopt -a \
+TEMP_OPT=$(getopt -a \
   -o e:,o:,i:,n:,f:,s:,w:,p:,h,V,c:,x,a,l:,d: \
-  --long end:,offset:,interval:,number:,fontsize:,scale:,width:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps,cature-dir:,debug \
-  -- "$@"`
+  --long end:,offset:,interval:,number:,fontsize:,scale:,width:,prefix:,help,version,crop:,autocrop,no-timestamps,columns:,pause,dont-delete-caps,capture-dir:,cature-dir:,debug \
+  -- "$@")
 
 if [ $? != 0 ]; then
   echo "Error executing getopt. Terminating..." >&2
@@ -117,24 +118,24 @@ while true ; do
     -l|--columns|-column) NUM_COLS=$2; shift 2;;
        --pause|-pause) DO_PAUSE=1; shift 1;;
        --dont-delete-caps|-dont-delete-caps) DO_NOT_DELETE_CAPS=1; shift 1;;
-    -d|--cature-dir|-cature-dir) CAPTURE_DIR=$2; shift 2;;
+    -d|--capture-dir|--cature-dir|-capture-dir|-cature-dir) CAPTURE_DIR=$2; shift 2;;
     -h|--help|-help) print_help; exit 0;;
-    -V|--version|-version) echo "`basename ${0}`, Version ${VERSION}"; exit 0;;
-    --debug) DEBUG=1 shift 1;;
+    -V|--version|-version) echo "$(basename "${0}"), Version ${VERSION}"; exit 0;;
+    --debug) DEBUG=1; shift 1;;
     --) shift ; break ;;
     *) echo "Unknown parameter $1." ; exit 1 ;;
   esac
 done
 
 # Debug
-if [ ${DEBUG} == 1 ]; then
+if [ "${DEBUG}" -eq 1 ]; then
   debug
   set -x
 fi
 
 # Handle the filename of the movie
-MOVIEFILENAME="$(realpath ${1})"
-echo $MOVIEFILENAME
+MOVIEFILENAME="$(realpath "${1}")"
+echo "$MOVIEFILENAME"
 if [ ! -f "${MOVIEFILENAME}" ]; then
   echo "Error: Please specify a filename for the movie."
   print_help
@@ -147,21 +148,21 @@ if [ ! -r "${MOVIEFILENAME}" ]; then
 fi
 
 if [ ! -d "${CAPTURE_DIR}" ]; then
-  echo "Error: Caputure directory is not exist."
+  echo "Error: Capture directory does not exist."
   exit 6
 fi
 
-function calculate_movie_length () {
-  eval `mplayer -vo null -ao null -frames 0 -identify "${MOVIEFILENAME}" 2> /dev/null| grep ID_LENGTH`
-  LENGTH=`echo $ID_LENGTH | awk '{print int($1)}'`
+calculate_movie_length () {
+  eval $(mplayer -vo null -ao null -frames 0 -identify "${MOVIEFILENAME}" 2> /dev/null | grep ID_LENGTH)
+  LENGTH=$(echo "$ID_LENGTH" | awk '{print int($1)}')
 }
 
 # Handle -e
-if [ -z $LENGTH ]; then
+if [ -z "$LENGTH" ]; then
   # aquire length of the movie
   calculate_movie_length
 fi
-if [ $LENGTH -le 0 ]; then
+if [ "$LENGTH" -le 0 ]; then
   BACK_OFFSET=$LENGTH
   calculate_movie_length
   LENGTH=$(($LENGTH+$BACK_OFFSET))
@@ -169,7 +170,7 @@ fi
 CAPTURE_LEN=$(($LENGTH-$OFFSET))
 
 # if -n is not given...
-if [ -z $NUM_CAPS ]; then
+if [ -z "$NUM_CAPS" ]; then
   # calculate STEPS using INTERVAL
   STEPS=$((${CAPTURE_LEN}/${INTERVAL}))
 else
@@ -179,12 +180,12 @@ else
 fi
 
 # construct parameters for scaling
-if [ ! -z $WIDTH ]; then
-  eval `mplayer -vo null -ao null -frames 0 -identify "${MOVIEFILENAME}" 2> /dev/null| grep ID_VIDEO_WIDTH`
-  VIDEO_WIDTH=`echo $ID_VIDEO_WIDTH | awk '{print int($1)}'`
-  SCALE_FACTOR=`echo "scale=5; $WIDTH / ($VIDEO_WIDTH * $NUM_COLS)" | bc`
+if [ -n "$WIDTH" ]; then
+  eval $(mplayer -vo null -ao null -frames 0 -identify "${MOVIEFILENAME}" 2> /dev/null | grep ID_VIDEO_WIDTH)
+  VIDEO_WIDTH=$(echo "$ID_VIDEO_WIDTH" | awk '{print int($1)}')
+  SCALE_FACTOR=$(echo "scale=5; $WIDTH / ($VIDEO_WIDTH * $NUM_COLS)" | bc)
 fi
-if [ ${SCALE_FACTOR} == 1 ]; then
+if [ "${SCALE_FACTOR}" = "1" ]; then
   SCALE_OPTS=""
   FFMPEG_SCALE_OPTS=""
 else
@@ -211,13 +212,13 @@ print_progress () {
   local reset="\033[0m"
 
   local filled_bar=""
-  if [ $filled -gt 0 ]; then
+  if [ "$filled" -gt 0 ]; then
     printf -v filled_bar '%*s' "$filled" ''
     filled_bar="${filled_bar// /█}"
   fi
 
   local empty_bar=""
-  if [ $empty -gt 0 ]; then
+  if [ "$empty" -gt 0 ]; then
     printf -v empty_bar '%*s' "$empty" ''
     empty_bar="${empty_bar// /░}"
   fi
@@ -228,78 +229,87 @@ print_progress () {
 declare -a SCREENCAPS
 cd "${CAPTURE_DIR}"
 echo "Making $STEPS screencaps, beginning at $OFFSET seconds and stopping at $LENGTH seconds: "
-print_progress 0 $STEPS
-for i in `seq 0 $(($STEPS-1))`
-do
-  # extract picture from movie
-  mplayer -nosound -ao null -vo png -ss $(($OFFSET+$i*$INTERVAL)) -frames 1 $SCALE_OPTS "${MOVIEFILENAME}" > /dev/null 2> /dev/null
+print_progress 0 "$STEPS"
 
-  # ffmpeg fallback
-  # Fixme: some times mplayer can't decode wmv
-  if [ ! -f 00000001.png ]; then
-    ffmpeg -ss $(($OFFSET+$i*$INTERVAL)) -r 1 -t 1 -i "${MOVIEFILENAME}" $FFMPEG_SCALE_OPTS 00000001.png 2> /dev/null
+TMP_FRAME="tmp_frame_$$.png"
+
+for ((i=0; i<STEPS; i++))
+do
+  rm -f 00000001.png "$TMP_FRAME"
+
+  # extract picture from movie with mplayer (fastest)
+  mplayer -nosound -ao null -vo png -ss $(($OFFSET+$i*$INTERVAL)) -frames 1 $SCALE_OPTS "${MOVIEFILENAME}" > /dev/null 2> /dev/null
+  if [ -f 00000001.png ]; then
+    mv 00000001.png "$TMP_FRAME"
+  else
+    # ffmpeg fallback
+    ffmpeg -ss $(($OFFSET+$i*$INTERVAL)) -r 1 -t 1 -i "${MOVIEFILENAME}" $FFMPEG_SCALE_OPTS "$TMP_FRAME" 2> /dev/null
   fi
 
-  if [ ! -f 00000001.png ]; then
+  if [ ! -f "$TMP_FRAME" ]; then
     echo -e "\nError: Can't decode \"$MOVIEFILENAME\" file."
-    rm ${SCREENCAPS[*]}
+    if [ ${#SCREENCAPS[@]} -gt 0 ]; then
+      rm "${SCREENCAPS[@]}"
+    fi
     exit 5
   fi
 
-  # crop the picture
-  if [ ! -z $CROP_SPEC ]; then
-    mogrify -crop ${CROP_SPEC} 00000001.png
+  FNAME=$(printf "%s%08d.png" "${PREFIX}" "$i")
+
+  # Build ImageMagick options to process crop, autocrop, and timestamp in a single pass
+  MAGICK_OPTS=()
+  if [ -n "$CROP_SPEC" ]; then
+    MAGICK_OPTS+=(-crop "$CROP_SPEC")
   fi
-  if [ ! -z $AUTOCROP ]; then
-    mogrify -fuzz 10% -trim 00000001.png
+  if [ -n "$AUTOCROP" ]; then
+    MAGICK_OPTS+=(-fuzz "10%" -trim)
   fi
 
-  # Insert timestamp
-  if [ -z $NO_TIMESTAMPS ]; then
-    # calculate current offset in seconds
+  if [ -z "$NO_TIMESTAMPS" ]; then
     POSITION=$(($OFFSET+$i*$INTERVAL))
-    TIMESTAMP=`printf "%02d:%02d:%02d" $((($POSITION/3600)%24)) $((($POSITION/60)%60)) $(($POSITION%60))`
-    # insert timestamp
-    magick 00000001.png \
-      -font "/System/Library/Fonts/Helvetica.ttc" \
-      -gravity SouthWest \
-      -pointsize $FONTSIZE \
-      -stroke '#000' -strokewidth 2 -annotate +1-1 "$TIMESTAMP" \
-      -stroke none -fill '#fff' -annotate +1-1 "$TIMESTAMP" 00000001.png
+    TIMESTAMP=$(printf "%02d:%02d:%02d" $((($POSITION/3600)%24)) $((($POSITION/60)%60)) $(($POSITION%60)))
+    MAGICK_OPTS+=(
+      -font "/System/Library/Fonts/Helvetica.ttc"
+      -gravity SouthWest
+      -pointsize "$FONTSIZE"
+      -stroke '#000' -strokewidth 2 -annotate +1-1 "$TIMESTAMP"
+      -stroke none -fill '#fff' -annotate +1-1 "$TIMESTAMP"
+    )
   fi
 
-  # rename captured picture to prefix_seqnum.png
-  FNAME=`printf "%s%08d.png" "${PREFIX}" $i`
-  mv 00000001.png $FNAME
+  if [ ${#MAGICK_OPTS[@]} -gt 0 ]; then
+    magick "$TMP_FRAME" "${MAGICK_OPTS[@]}" "$FNAME"
+    rm -f "$TMP_FRAME"
+  else
+    mv "$TMP_FRAME" "$FNAME"
+  fi
 
   # Append the filename to the array SCREENCAPS
-  SCREENCAPS[${#SCREENCAPS[*]}]=$FNAME
+  SCREENCAPS+=("$FNAME")
 
-  print_progress $(($i + 1)) $STEPS
+  print_progress $(($i + 1)) "$STEPS"
 done
 echo -e "\n  ✨ Done!"
 
-if [ ! -z $DO_WAIT ]; then
+if [ -n "$DO_PAUSE" ]; then
   echo "Waiting (as requested). Press Enter to continue."
   read
 fi
 
 # Strip the extension from the movie's filename and append .png
-MONTAGE_FILE=${MOVIEFILENAME}
-for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv .wmv .ts ; do
-  MONTAGE_FILE=`basename "${MONTAGE_FILE}" $i`
-done
-MONTAGE_FILE="$(dirname "${MOVIEFILENAME}")/${MONTAGE_FILE}.png"
+MONTAGE_FILE="${MOVIEFILENAME%.*}.png"
 
 montage \
   -font "/System/Library/Fonts/Helvetica.ttc" \
   -geometry +0+0 \
-  -tile ${NUM_COLS}x ${SCREENCAPS[*]} 00000001.png
+  -tile ${NUM_COLS}x "${SCREENCAPS[@]}" 00000001.png
 /bin/mv -f 00000001.png "${MONTAGE_FILE}"
 
 # Delete the screen captures
-if [ -z $DO_NOT_DELETE_CAPS ] ; then
-  rm ${SCREENCAPS[*]}
+if [ -z "$DO_NOT_DELETE_CAPS" ] ; then
+  if [ ${#SCREENCAPS[@]} -gt 0 ]; then
+    rm "${SCREENCAPS[@]}"
+  fi
 fi
 
 cd "${EXEC_DIR}"
