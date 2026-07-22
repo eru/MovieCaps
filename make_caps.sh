@@ -81,7 +81,7 @@ realpath ()
 }
 
 # Check if the required software is available
-for i in getopt mplayer convert ffmpeg printf awk; do
+for i in getopt mplayer magick ffmpeg printf awk; do
   if [ ! `which ${i}` ]; then
     echo "Error: Unable to find ${i}."
     exit 4
@@ -194,9 +194,41 @@ fi
 
 ## End: Argument Parsing
 
+# Helper for stylish progress bar
+print_progress () {
+  local current=$1
+  local total=$2
+  local width=30
+  local percent=$(( current * 100 / total ))
+  local filled=$(( current * width / total ))
+  local empty=$(( width - filled ))
+
+  # ANSI color escape codes
+  local bold="\033[1m"
+  local cyan="\033[36m"
+  local green="\033[32m"
+  local dim="\033[90m"
+  local reset="\033[0m"
+
+  local filled_bar=""
+  if [ $filled -gt 0 ]; then
+    printf -v filled_bar '%*s' "$filled" ''
+    filled_bar="${filled_bar// /█}"
+  fi
+
+  local empty_bar=""
+  if [ $empty -gt 0 ]; then
+    printf -v empty_bar '%*s' "$empty" ''
+    empty_bar="${empty_bar// /░}"
+  fi
+
+  printf "\r  ${cyan}🎬 Progress:${reset} [${green}%s${dim}%s${reset}] ${bold}%3d%%${reset} (%d/%d)" "$filled_bar" "$empty_bar" "$percent" "$current" "$total"
+}
+
 declare -a SCREENCAPS
 cd "${CAPTURE_DIR}"
 echo "Making $STEPS screencaps, beginning at $OFFSET seconds and stopping at $LENGTH seconds: "
+print_progress 0 $STEPS
 for i in `seq 0 $(($STEPS-1))`
 do
   # extract picture from movie
@@ -209,7 +241,7 @@ do
   fi
 
   if [ ! -f 00000001.png ]; then
-    echo "Error: Can't decode \"$MOVIEFILENAME\" file."
+    echo -e "\nError: Can't decode \"$MOVIEFILENAME\" file."
     rm ${SCREENCAPS[*]}
     exit 5
   fi
@@ -228,7 +260,9 @@ do
     POSITION=$(($OFFSET+$i*$INTERVAL))
     TIMESTAMP=`printf "%02d:%02d:%02d" $((($POSITION/3600)%24)) $((($POSITION/60)%60)) $(($POSITION%60))`
     # insert timestamp
-    convert 00000001.png -gravity SouthWest \
+    magick 00000001.png \
+      -font "/System/Library/Fonts/Helvetica.ttc" \
+      -gravity SouthWest \
       -pointsize $FONTSIZE \
       -stroke '#000' -strokewidth 2 -annotate +1-1 "$TIMESTAMP" \
       -stroke none -fill '#fff' -annotate +1-1 "$TIMESTAMP" 00000001.png
@@ -241,9 +275,9 @@ do
   # Append the filename to the array SCREENCAPS
   SCREENCAPS[${#SCREENCAPS[*]}]=$FNAME
 
-  echo -n '*'
+  print_progress $(($i + 1)) $STEPS
 done
-echo " done."
+echo -e "\n  ✨ Done!"
 
 if [ ! -z $DO_WAIT ]; then
   echo "Waiting (as requested). Press Enter to continue."
@@ -257,7 +291,10 @@ for i in .avi .mpg .mpeg .mp4 .vob .vcd .ogm .mkv .wmv .ts ; do
 done
 MONTAGE_FILE="$(dirname "${MOVIEFILENAME}")/${MONTAGE_FILE}.png"
 
-montage -geometry +0+0 -tile ${NUM_COLS}x ${SCREENCAPS[*]} 00000001.png
+montage \
+  -font "/System/Library/Fonts/Helvetica.ttc" \
+  -geometry +0+0 \
+  -tile ${NUM_COLS}x ${SCREENCAPS[*]} 00000001.png
 /bin/mv -f 00000001.png "${MONTAGE_FILE}"
 
 # Delete the screen captures
