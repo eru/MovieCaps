@@ -226,38 +226,33 @@ print_progress () {
   printf "\r  ${cyan}🎬 Progress:${reset} [${green}%s${dim}%s${reset}] ${bold}%3d%%${reset} (%d/%d)" "$filled_bar" "$empty_bar" "$percent" "$current" "$total"
 }
 
-declare -a SCREENCAPS
-cd "${CAPTURE_DIR}"
-echo "Making $STEPS screencaps, beginning at $OFFSET seconds and stopping at $LENGTH seconds: "
-print_progress 0 "$STEPS"
+# Worker function for parallel frame extraction & processing
+process_frame () {
+  local i=$1
+  local WORK_DIR
 
-TMP_FRAME="tmp_frame_$$.png"
-
-for ((i=0; i<STEPS; i++))
-do
-  rm -f 00000001.png "$TMP_FRAME"
+  WORK_DIR=$(mktemp -d "${CAPTURE_DIR}/.tmp_cap_${i}_XXXXXX")
+  cd "$WORK_DIR" || return 1
 
   # extract picture from movie with mplayer (fastest)
   mplayer -nosound -ao null -vo png -ss $(($OFFSET+$i*$INTERVAL)) -frames 1 $SCALE_OPTS "${MOVIEFILENAME}" > /dev/null 2> /dev/null
   if [ -f 00000001.png ]; then
-    mv 00000001.png "$TMP_FRAME"
+    mv 00000001.png tmp_frame.png
   else
     # ffmpeg fallback
-    ffmpeg -ss $(($OFFSET+$i*$INTERVAL)) -r 1 -t 1 -i "${MOVIEFILENAME}" $FFMPEG_SCALE_OPTS "$TMP_FRAME" 2> /dev/null
+    ffmpeg -ss $(($OFFSET+$i*$INTERVAL)) -r 1 -t 1 -i "${MOVIEFILENAME}" $FFMPEG_SCALE_OPTS tmp_frame.png 2> /dev/null
   fi
 
-  if [ ! -f "$TMP_FRAME" ]; then
-    echo -e "\nError: Can't decode \"$MOVIEFILENAME\" file."
-    if [ ${#SCREENCAPS[@]} -gt 0 ]; then
-      rm "${SCREENCAPS[@]}"
-    fi
-    exit 5
+  if [ ! -f tmp_frame.png ]; then
+    cd "${CAPTURE_DIR}"
+    rm -rf "$WORK_DIR"
+    return 1
   fi
 
+  local FNAME
   FNAME=$(printf "%s%08d.png" "${PREFIX}" "$i")
 
-  # Build ImageMagick options to process crop, autocrop, and timestamp in a single pass
-  MAGICK_OPTS=()
+  local MAGICK_OPTS=()
   if [ -n "$CROP_SPEC" ]; then
     MAGICK_OPTS+=(-crop "$CROP_SPEC")
   fi
@@ -266,8 +261,8 @@ do
   fi
 
   if [ -z "$NO_TIMESTAMPS" ]; then
-    POSITION=$(($OFFSET+$i*$INTERVAL))
-    TIMESTAMP=$(printf "%02d:%02d:%02d" $((($POSITION/3600)%24)) $((($POSITION/60)%60)) $(($POSITION%60)))
+    local POSITION=$(($OFFSET+$i*$INTERVAL))
+    local TIMESTAMP=$(printf "%02d:%02d:%02d" $((($POSITION/3600)%24)) $((($POSITION/60)%60)) $(($POSITION%60)))
     MAGICK_OPTS+=(
       -font "/System/Library/Fonts/Helvetica.ttc"
       -gravity SouthWest
@@ -278,18 +273,62 @@ do
   fi
 
   if [ ${#MAGICK_OPTS[@]} -gt 0 ]; then
-    magick "$TMP_FRAME" "${MAGICK_OPTS[@]}" "$FNAME"
-    rm -f "$TMP_FRAME"
+    magick tmp_frame.png "${MAGICK_OPTS[@]}" "${CAPTURE_DIR}/$FNAME"
   else
-    mv "$TMP_FRAME" "$FNAME"
+    mv tmp_frame.png "${CAPTURE_DIR}/$FNAME"
   fi
 
-  # Append the filename to the array SCREENCAPS
-  SCREENCAPS+=("$FNAME")
+  cd "${CAPTURE_DIR}"
+  rm -rf "$WORK_DIR"
+  echo "1" >> "$PROGRESS_FILE"
+}
 
-  print_progress $(($i + 1)) "$STEPS"
+# Determine CPU core count for parallelism
+MAX_JOBS=$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
+PROGRESS_FILE=$(mktemp "${CAPTURE_DIR}/.progress_XXXXXX")
+
+cd "${CAPTURE_DIR}"
+echo "Making $STEPS screencaps in parallel ($MAX_JOBS jobs), beginning at $OFFSET seconds and stopping at $LENGTH seconds: "
+print_progress 0 "$STEPS"
+
+for ((i=0; i<STEPS; i++))
+do
+  process_frame "$i" &
+
+  while [ $(jobs -r -p | wc -l) -ge "$MAX_JOBS" ]; do
+    sleep 0.05
+    COMPLETED=$(wc -l < "$PROGRESS_FILE" 2>/dev/null || echo 0)
+    print_progress "$COMPLETED" "$STEPS"
+  done
 done
+
+while [ $(jobs -r -p | wc -l) -gt 0 ]; do
+  sleep 0.05
+  COMPLETED=$(wc -l < "$PROGRESS_FILE" 2>/dev/null || echo 0)
+  print_progress "$COMPLETED" "$STEPS"
+done
+
+wait
+COMPLETED=$(wc -l < "$PROGRESS_FILE" 2>/dev/null || echo 0)
+print_progress "$STEPS" "$STEPS"
 echo -e "\n  ✨ Done!"
+
+rm -f "$PROGRESS_FILE"
+
+# Collect output files
+SCREENCAPS=()
+for ((i=0; i<STEPS; i++)); do
+  FNAME=$(printf "%s%08d.png" "${PREFIX}" "$i")
+  if [ -f "$FNAME" ]; then
+    SCREENCAPS+=("$FNAME")
+  else
+    echo -e "\nError: Missing screencap $FNAME"
+    if [ ${#SCREENCAPS[@]} -gt 0 ]; then
+      rm -f "${SCREENCAPS[@]}"
+    fi
+    exit 5
+  fi
+done
 
 if [ -n "$DO_PAUSE" ]; then
   echo "Waiting (as requested). Press Enter to continue."
